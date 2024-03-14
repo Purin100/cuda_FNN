@@ -55,7 +55,6 @@ private:
     MYTYPE lr = 0.001;
 
     Vector output;
-    Vector local_out;
     Vector bias;
     
 
