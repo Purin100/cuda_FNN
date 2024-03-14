@@ -50,7 +50,6 @@ private:
     Matrix weight;
     Matrix weight_t;//transposed weight matrix
     Matrix weight_grad;//matrix contains gradient values of weight matrix
-    Matrix split;
 
     MYTYPE lr = 0.001;
 
