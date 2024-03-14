@@ -24,7 +24,6 @@ public:
 
     //Functions for BP with different inputs
     void Backward(Vector& _loss, Dense* pre_layer, const int num);//This one is for the last layer in the neural network
-
     void Backward(Dense* pre_layer);
     void Backward(Flatten* pre_layer);
     void Backward(Vector& _input);
