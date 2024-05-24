@@ -1,5 +1,18 @@
 #include "Net.h"
 
+Net::Net(const int samples, const int batch_size)
+{
+    assert(samples > 0);
+    this->batch_size = batch_size > 0 ? batch_size : 1;
+    if (samples % batch_size == 0)
+        batches = samples / batch_size;
+    else
+    {
+        batches = samples / batch_size + 1;
+        rest_sample = samples % batch_size;
+    }
+}
+
 Net::~Net()
 {
 
@@ -42,14 +55,6 @@ void Net::Forward(MYTYPE* _input, const int size)
                 dlayer_now->Forward(dlayer_pre);
             }
             break;
-        case FLATTEN:
-            flayer_now = (Flatten*)((*now_layer).layer);
-            if (preType == CONV2D)
-            {
-                //flayer_now->Forward()
-            }
-            break;
-
         }
 
         now_layer++;
@@ -67,6 +72,7 @@ void Net::Forward(TXTReader* _input)
     }
     Dense* dlayer_now = nullptr, * dlayer_pre = nullptr;
     Flatten* flayer_now = nullptr;
+
     auto now_layer = layers.begin();
     auto pre_layer = layers.begin();
 
@@ -108,8 +114,6 @@ void Net::Forward(MYTYPE* _input, int row, int col)
     auto now_layer = layers.begin();
     auto pre_layer = layers.begin();
 
-    //if (now_layer->type == CONV2D)
-    //    reinterpret_cast<Conv2D*>(now_layer->layer)->Forward(_input, row, col);
     now_layer++;
 
     int preType;
@@ -134,12 +138,9 @@ void Net::Forward(MYTYPE* _input, int row, int col)
             break;
         case FLATTEN:
             flayer_now = (Flatten*)((*now_layer).layer);
-            if (preType == CONV2D)
-            {
-                //flayer_now->Forward()
-            }
             break;
         }
+
         now_layer++;
         pre_layer++;
     }
@@ -157,17 +158,35 @@ void Net::Backward(Vector onehot_label)
     int category = layers.back().num;
     Vector last_out = GetLayerOutput(layers.back().order);
 
+
     loss = Cross_Entropy(onehot_label.GetVec(), last_out.GetVec(), category);
     //loss = MSE(onehot_label.GetVec(), last_out.GetVec(), category);
     total_loss += loss;
     //printf("loss in current sample: %f\n", loss);
 
     //gradient for Softmax function
-    last_out = last_out - onehot_label;
-    for (int i = 0; i < category; i++)
-        bat_loss[i] = last_out[i];
+    last_out -= onehot_label;
 
-    last_out.DataTransfer(HostToDevice);
+    this->current_sample++;
+    this->update = false;
+
+    //if reaches the batch size, then allow updating weight
+    if (this->current_sample == batch_size)
+    {
+        this->update = true;
+        current_batch++;
+        this->current_sample = 0;
+    }
+    //or when comes to the last batch, allow updating weight
+    if (rest_sample && this->current_batch == batches)
+    {
+        if (current_sample == rest_sample)
+        {
+            this->update = true;
+            this->current_sample = 0;
+        }
+    }
+
 
     //BP starts here
     auto now_layer = layers.end() - 1;
@@ -180,11 +199,8 @@ void Net::Backward(Vector onehot_label)
         {
             if (now_layer->type == DENSE && pre_layer->type == DENSE)
             {
-                {
-                    reinterpret_cast<Dense*>(now_layer->layer)->Backward(last_out, reinterpret_cast<Dense*>(pre_layer->layer), category);
-                }
+                reinterpret_cast<Dense*>(now_layer->layer)->Backward(last_out, reinterpret_cast<Dense*>(pre_layer->layer), this->update);
             }
-            
             now_layer--;
             if (pre_layer != layers.begin())
                 pre_layer--;
@@ -200,11 +216,12 @@ void Net::Backward(Vector onehot_label)
                 if (now_layer == layers.begin())
                     reinterpret_cast<Dense*>(now_layer->layer)->Backward(input);
                 else
-                    reinterpret_cast<Dense*>(now_layer->layer)->Backward(reinterpret_cast<Dense*>(pre_layer->layer));
+                    reinterpret_cast<Dense*>(now_layer->layer)->Backward(reinterpret_cast<Dense*>(pre_layer->layer), this->update);
             }
-            if (pre_layer->type==FLATTEN)
-                reinterpret_cast<Dense*>(now_layer->layer)->Backward(reinterpret_cast<Flatten*>(pre_layer->layer));
-            
+            if (pre_layer->type == FLATTEN)
+            {
+                reinterpret_cast<Dense*>(now_layer->layer)->Backward(reinterpret_cast<Flatten*>(pre_layer->layer), this->update);
+            }
             break;
         default:
             break;
@@ -246,6 +263,7 @@ bool Net::Eval(int label, Vector onehot_label)
         getchar();
         exit(2);
     }
+    confuse[label][ predict]++;
     return (predict == label);
 }
 
@@ -282,6 +300,15 @@ void Net::Save(std::string _dir)
         }
         layer++;
     }
+
+    FILE* fp = fopen((_dir + "/confuse matrix.txt").c_str(), "w");
+    for (int i = 0; i < 10; i++)
+    {
+        for (int j = 0; j < 10; j++)
+            fprintf(fp, "%d ", confuse[i][j]);
+        fprintf(fp, "\n");
+    }
+    fclose(fp);
 }
 
 const Vector& Net::GetLayerOutput(int which)

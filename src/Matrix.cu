@@ -9,12 +9,12 @@ Vector::Vector(const int element_num)
 
 Vector::Vector(const Vector& v)
 {
-    assert(v.element_num >= 0);
+    assert(v.element_num > 0);
     {
         if (element_num == 0)
             _init(v.element_num);
         memcpy(this->data, v.data, sizeof(MYTYPE) * this->element_num);
-        cudaMemcpy(dev_data, this->data, sizeof(MYTYPE) * this->element_num, cudaMemcpyHostToDevice);
+        cudaMemcpy(dev_data, v.dev_data, sizeof(MYTYPE) * this->element_num, cudaMemcpyDeviceToDevice);
     }
 }
 
@@ -60,9 +60,40 @@ void Vector::_init(const int element_num)
     }
 }
 
+void Vector::ZeroReset()
+{
+    if (data)
+        memset(data, 0, sizeof(MYTYPE) * element_num);
+    if (dev_data)
+        cudaMemset(dev_data, 0, sizeof(MYTYPE) * element_num);
+}
+
 bool Vector::empty()
 {
     return element_num == 0 || data == nullptr;
+}
+
+Vector& Vector::vsqrt()
+{
+    mc.VecSqrt(this->dev_data, this->element_num);
+    cudaMemcpy(data, dev_data, sizeof(MYTYPE) * element_num, cudaMemcpyDeviceToHost);
+    return *this;
+}
+
+MYTYPE Vector::angle(const Vector& v)
+{
+    assert(this->element_num == v.element_num);
+    MYTYPE result;
+
+    result = mc.VecAngle(this->dev_data, v.dev_data, element_num);
+
+    return result;
+}
+
+void Vector::Normalize()
+{
+    mc.VecNormalize(dev_data, element_num);
+    cudaMemcpy(data, dev_data, sizeof(MYTYPE) * element_num, cudaMemcpyDeviceToHost);
 }
 
 MYTYPE& Vector::operator[](int i)
@@ -71,12 +102,29 @@ MYTYPE& Vector::operator[](int i)
     return this->data[i];
 }
 
-Vector& Vector::operator+(const Vector& v)
+Vector operator+(const Vector& vec_a, const Vector& vec_b)
 {
-    assert(v.element_num == this->element_num);
-    mc.VectorAdd(this->dev_data, v.dev_data, this->dev_data, element_num);
-    cudaMemcpy(data, dev_data, element_num * sizeof(MYTYPE), cudaMemcpyDeviceToHost);
-    return *this;
+    assert(vec_a.element_num == vec_b.element_num);
+    Vector t = vec_a;
+    mc.VectorAdd(t.dev_data, vec_a.dev_data, vec_b.dev_data, vec_a.element_num);
+    cudaMemcpy(t.data, t.dev_data, sizeof(MYTYPE) * t.element_num, cudaMemcpyDeviceToHost);
+    return t;
+}
+
+Vector operator-(const Vector& v, const MYTYPE num)
+{
+    Vector t = v;
+    mc.VecSubNum(t.dev_data, num, t.element_num);
+    cudaMemcpy(t.data, t.dev_data, sizeof(MYTYPE) * t.element_num, cudaMemcpyDeviceToHost);
+    return t;
+}
+
+Vector operator+(const Vector& v, const MYTYPE num)
+{
+    Vector t = v;
+    mc.VecAddNum(t.dev_data, num, t.element_num);
+    cudaMemcpy(t.data, t.dev_data, sizeof(MYTYPE) * t.element_num, cudaMemcpyDeviceToHost);
+    return t;
 }
 
 Vector& Vector::operator+=(const Vector& v)
@@ -108,19 +156,30 @@ Vector& Vector::operator=(const Vector& v)
     return *this;
 }
 
-Vector operator-(const Vector& v, const MYTYPE num)
-{
-    Vector t = v;
-    mc.VecSubNum(t.dev_data, num, t.element_num);
-    return t;
-}
-
 Vector operator-(const Vector& vec_a, const Vector& vec_b)
 {
     assert(vec_a.element_num == vec_b.element_num);
     Vector t = vec_a;
     mc.VecSub(t.dev_data, vec_b.dev_data, t.dev_data, t.element_num);
     cudaMemcpy(t.data, t.dev_data, t.element_num * sizeof(MYTYPE), cudaMemcpyDeviceToHost);
+    return t;
+}
+
+Vector operator/(const Vector& v, const MYTYPE num)
+{
+    Vector t;
+    t = v;
+    mc.VecDivNum(t.dev_data, num, t.element_num);
+    cudaMemcpy(t.data, t.dev_data, sizeof(MYTYPE) * t.element_num, cudaMemcpyDeviceToHost);
+    return t;
+}
+
+Vector operator/(const Vector& vec_a, const Vector& vec_b)
+{
+    assert(vec_a.element_num == vec_b.element_num);
+    Vector t = vec_a;
+    mc.VecEleDiv(t.dev_data, vec_b.dev_data, t.element_num);
+    cudaMemcpy(t.data, t.dev_data, sizeof(MYTYPE) * t.element_num, cudaMemcpyDeviceToHost);
     return t;
 }
 
@@ -144,8 +203,8 @@ Vector operator*(const Vector& v, const MYTYPE num)
     Vector t;
     t = v;
     assert(!t.empty());
-    mc.VecMultNum(t.GetDevVec(), num, t.element_num);
-    t.DataTransfer(DeviceToHost);
+    mc.VecMultNum(t.dev_data, num, t.element_num);
+    cudaMemcpy(t.data, t.dev_data, sizeof(MYTYPE) * t.element_num, cudaMemcpyDeviceToHost);
     return t;
 }
 
@@ -154,8 +213,8 @@ Vector operator*(const MYTYPE num, const Vector& v)
     Vector t;
     t = v;
     assert(!t.empty());
-    mc.VecMultNum(t.GetDevVec(), num, t.element_num);
-    t.DataTransfer(DeviceToHost);
+    mc.VecMultNum(t.dev_data, num, t.element_num);
+    cudaMemcpy(t.data, t.dev_data, sizeof(MYTYPE) * t.element_num, cudaMemcpyDeviceToHost);
     return t;
 }
 
@@ -268,6 +327,13 @@ Matrix& Matrix::operator+=(const Matrix& m)
     return *this;
 }
 
+Matrix& Matrix::operator+=(const MYTYPE num)
+{
+    mc.MatrixAddNum(dev_data, row, col, num);
+    cudaMemcpy(data, dev_data, sizeof(MYTYPE) * element_num, cudaMemcpyDeviceToHost);
+    return *this;
+}
+
 Matrix& Matrix::operator*=(const MYTYPE num)
 {
     assert(this->element_num > 0);
@@ -276,12 +342,39 @@ Matrix& Matrix::operator*=(const MYTYPE num)
     return *this;
 }
 
+Matrix operator*(const Matrix& mat, const MYTYPE num)
+{
+    Matrix t;
+    t = mat;
+    mc.MatrixMultNumber(t.dev_data, num, t.row, t.col);
+    t.DataTransfer(DeviceToHost);
+    return t;
+}
+
+Matrix operator*(const MYTYPE num, const Matrix& mat)
+{
+    Matrix t = mat;
+    mc.MatrixMultNumber(t.dev_data, num, t.row, t.col);
+    t.DataTransfer(DeviceToHost);
+    return t;
+}
+
+Matrix operator/(const Matrix& mat, const MYTYPE num)
+{
+    assert(num != 0);
+    Matrix t = mat;
+    mc.MatrixMultNumber(t.dev_data, 1.0 / num, t.row, t.col);
+    cudaMemcpy(t.data, t.dev_data, sizeof(MYTYPE) * t.element_num, cudaMemcpyDeviceToHost);
+    return t;
+}
+
 Vector Matrix::RowSlice(const int which_row)
 {
     assert(which_row >= 0 && which_row < row);
     Vector v(col);
     for (int i = 0; i < col; i++)
         v[i] = data[which_row * col + i];
+    v.DataTransfer(HostToDevice);
     return v;
 }
 
@@ -297,10 +390,25 @@ void Matrix::showMat()
 {
     for (int i = 0; i < row; i++)
     {
+        printf("row %d:\n", i);
         for (int j = 0; j < col; j++)
             printf("%f ", data[i * col + j]);
         printf("\n");
     }
+}
+
+void Matrix::EleDiv(const Matrix& mat)
+{
+    assert(row == mat.row && col == mat.col);
+    mc.MatrixEleDiv(dev_data, mat.dev_data, row, col);
+    cudaMemcpy(data, dev_data, sizeof(MYTYPE) * element_num, cudaMemcpyDeviceToHost);
+}
+
+Matrix& Matrix::msqrt()
+{
+    mc.MatSqrt(dev_data, row, col);
+    cudaMemcpy(data, dev_data, sizeof(MYTYPE) * element_num, cudaMemcpyDeviceToHost);
+    return *this;
 }
 
 bool Matrix::empty()
@@ -336,19 +444,23 @@ void Matrix::Zeroreset()
 
 Matrix Identity(const int num)
 {
-    Matrix mat = Zeros(num);
+    assert(num > 0);
+    Matrix mat = Zeros(num, num);
     for (int i = 0; i < num; i++)
         mat(i, i) = 1.0;
     mat.DataTransfer(HostToDevice);
     return mat;
 }
-Matrix Zeros(const int num)
+Matrix Zeros(const int row, const int col)
 {
-    Matrix mat(num, num);
-    for (int i = 0; i < num; i++)
-        for (int j = 0; j < num; j++)
-            mat(i, j) = 0.0;
-    mat.DataTransfer(HostToDevice);
+    assert(row > 0 && col > 0);
+    Matrix mat(row, col);
+    //for (int i = 0; i < row; i++)
+    //    for (int j = 0; j < col; j++)
+    //        mat(i, j) = 0.0;
+    memset(mat.GetMat(), 0, sizeof(MYTYPE) * row * col);
+    cudaMemset(mat.GetDevMat(), 0, sizeof(MYTYPE) * row * col);
+    //mat.DataTransfer(HostToDevice);
     return mat;
 }
 
