@@ -1,0 +1,13 @@
+#Fix
+There are logic error in all Backward() functions in Dense class, including:
+1) the differal vector which stores the derivative of f'(x) should be calculated based on wx+b not the final output of the layer.
+2) the chaotic calculation process in Backward() functions may causes some potential problem and make code hard to understand. I tidied it up.
+3) variable thread for calling cuda functions were too large, causing the device wastes time waiting for this variable increasing to 512. I reduced all of them to 32, and it may save some time.
+4) gemm_gpu() function in class mat_calc now support CUBLAS_OP_N, which allows the result matirx saved in row-major instead of column-major. Save time for reforming matrix before updating weight matrix.
+
+#Add
+1) new operators for vector and matrix calculation (in Matrix.cuh), so you can use operators like *, / instead of calling functions in mat_calc class.
+2) variables for batch update in class Dense and class Net.
+3) class Net has new constructor to initialize with batch size.
+4) matrix transpose function mat_calc::MatrixTranspose.
+5) Vector local_out stores the result of wx+b.
