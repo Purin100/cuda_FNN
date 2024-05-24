@@ -15,5 +15,7 @@ This file defines some misc stuff like functions, marcos, etc.
 
 #define RELEASE(x) { if(x){delete[] x;x = nullptr;} }
 
+#define BLOCK 512 // for im2col and col2im
+
 typedef double MYTYPE;//data type for numbers in matrix, vector, and other classes in the project
 typedef unsigned int UINT;

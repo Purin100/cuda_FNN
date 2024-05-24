@@ -8,7 +8,6 @@ This file defines Net class which is the basic framework for the neural network 
 #include "Flatten.h"
 #include "TXTReader.h"
 #include <vector>
-#include <thread>
 
 //The two #if are used for saving paraments in the network
 #if defined(_WIN32) || defined(_WIN64)
@@ -22,13 +21,12 @@ This file defines Net class which is the basic framework for the neural network 
 #endif/*Linux*/
 
 using std::vector;
-using std::thread;
-
 
 class Net
 {
 public:
     Net() {};
+    Net(const int samples, const int batch_size);
     ~Net();
 
     void Forward(MYTYPE* _input, const int size);
@@ -41,6 +39,7 @@ public:
     void lrDecay(const int now_epoch);
 
     void Save(std::string _dir);
+    inline void epochReset() { current_batch = 1; };
 
     //Get output in a sepcific layer
     //which >= 0 && which < this->order
@@ -55,7 +54,7 @@ public:
     // add(&d, &df);
     //All three function will automatically call BuildLayer() function in each layer class.
     template <typename T, typename L>
-    bool add(T* layer, L* info)
+    bool add(T* layer, L* info, const char* optimizer=nullptr)
     {
         if (!(info))
         {
@@ -73,7 +72,7 @@ public:
         if (std::is_same<T, Dense>::value && std::is_same<L, DenseInfo>::value)
         {
             DenseInfo* p = reinterpret_cast<DenseInfo*>(info);
-            if (!reinterpret_cast<Dense*>(layer)->BuildLayer(p->input_units, p->output_units, p->output_units, p->activation))
+            if (!reinterpret_cast<Dense*>(layer)->BuildLayer(p->input_units, p->output_units, p->activation, optimizer))
             {
                 printf("Error happened when adding Dense layer.\n");
                 getchar();
@@ -105,7 +104,7 @@ public:
 
     //When you want to add Dense layer, Dropout layer, or Flatten layer, use this function
     template <typename T>
-    bool add(T* layer, const int node_num, const MYTYPE coff=1.0, const char* activation="relu")
+    bool add(T* layer, const int node_num, const MYTYPE coff=1.0, const char* activation="relu", const char* optimizer=nullptr, bool freeze = false)
     {
         if (!layer)
         {
@@ -130,7 +129,7 @@ public:
         {
             if (layers.back().type == FLATTEN)
             {
-                if(!reinterpret_cast<Dense*>(layer)->BuildLayer(reinterpret_cast<Flatten*>(layers.back().layer)->GetSize(),node_num,node_num,activation))
+                if(!reinterpret_cast<Dense*>(layer)->BuildLayer(reinterpret_cast<Flatten*>(layers.back().layer)->GetSize(), node_num, activation, optimizer, freeze))
                 {
                     printf("Error happened when adding Dense layer.\n");
                     getchar();
@@ -139,7 +138,7 @@ public:
             }
             if (layers.back().type == DENSE)
             {
-                if (!reinterpret_cast<Dense*>(layer)->BuildLayer(layers.back().num, node_num, node_num, activation))
+                if (!reinterpret_cast<Dense*>(layer)->BuildLayer(layers.back().num, node_num, activation, optimizer, freeze))
                 {
                     printf("Error happened when adding Dense layer.\n");
                     getchar();
@@ -147,6 +146,14 @@ public:
                 }
             }
             layers.push_back(Net_LayerInfo((void*)layer, node_num, DENSE, order));
+            order++;
+            return true;
+        }
+
+        if (std::is_same<T, Flatten>::value)
+        {
+            
+            layers.push_back(Net_LayerInfo((void*)layer, 1, FLATTEN, order));
             order++;
             return true;
         }
@@ -184,17 +191,16 @@ public:
     int cate_res[10] = { 0 };//array stores how many samples classified into one of the ten categories
     MYTYPE total_loss = 0.0;
     bool train = true;
+    int confuse[10][10] = { 0 };
 private:
-    vector<thread> threads;
     vector<Net_LayerInfo> layers;//a vector stores all layers' information in the network
     int order = 0;//a variable records the order of the layer, begins from zero.
     MYTYPE loss = 0.0f;//loss value for single sample
     int batch_size = 1;
     int current_sample = 0;
+    int current_batch = 1;
     int batches = 0;
-    int now_batch = 0;
+    int rest_sample = 0;
     Vector input;
-    MYTYPE* lastLayer_output = nullptr;
-    bool use_raniver = false;
-    MYTYPE bat_loss[10] = { 0.0 };//array stores loss values in one batch
+    bool update = false;
 };
