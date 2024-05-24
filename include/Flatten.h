@@ -7,8 +7,10 @@ This file difines Flatten layer.
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <vector>
 #include "Matrix.cuh"
 
+using std::vector;
 
 class Flatten
 {
@@ -20,9 +22,8 @@ public:
 
     void Forward(MYTYPE** _input, int row, int col);
 
-    //Now the flatten layer is the first layer of the neural network
-    //So this function is useless for now
     void Backward(Vector& _loss);
+
 
     void DisplayOutput();
     void Save(const char* dir_name, const char* mode);

@@ -6,14 +6,14 @@
 #include "Dense.cuh"
 #include "Net.h"
 #include "TXTReader.h"
+#include "optimizer.h"
 #include <stdio.h>
 #if defined(linux) || defined(Liunx)
 #include <dirent.h>
 #endif
 
 #define CLOSEFILE(fp){if(fp) fclose(fp);}
-//List files with specific extension name ext in one floder
-void Listdir(std::string _dir, const char* ext, std::vector<string>& result);
+void Listdir(std::string _dir, const char* ext, std::vector<string>& result, bool fulldir = true);
 
 struct Dataset
 {
@@ -30,25 +30,28 @@ int main(int argc, char** argv)
     TXTReader* file, * valid;
     
 #ifdef _DEBUG
-    int trainFile_num = 60000, testFile_num = 10000;
+    int trainFile_num = 100, testFile_num = 100;
 #else
     int trainFile_num = 200, testFile_num = 200;
 #endif
     int obj_label;
 
     int* train_label_arr = nullptr, * test_label_arr = nullptr;
-    int epoch = 500;//total training epoch
+    int epoch = 10;//total training epoch
     int now_epoch = 0;
     std::vector<string> trainfiles, testfiles;
 
-    //Change directory to your own directory  
+#ifdef linux
     Listdir(std::string("./trainsamples"), ".txt", trainfiles);
     Listdir(std::string("./testsamples"), ".txt", testfiles);
-
-
+#else
+    Listdir(std::string("./trainsamples"), ".txt", trainfiles);
+    Listdir(std::string("./testsamples"), ".txt", testfiles);
+#endif
     //read training data and test data from files
     //trainFile_num = trainfiles.size();
     //testFile_num = testfiles.size();
+
     file = new TXTReader[trainFile_num];
     valid = new TXTReader[testFile_num];
 
@@ -63,7 +66,6 @@ int main(int argc, char** argv)
         valid[i].Shrink(MINUS_ONE_TO_ONE);
     }
 
-    //Change directory to your own directory
     FILE* train_label = fopen("./train_label.txt", "r");
     if (!train_label)
     {
@@ -71,9 +73,7 @@ int main(int argc, char** argv)
         return -1;
     }
 
-    //Change directory to your own directory
     FILE* test_label = fopen("./test_label.txt", "r");
-    //FILE* test_label = fopen("D:/CudaRun/0train.txt", "r");
     if (!test_label)
     {
         printf("ERROR: Open test_label failed.\n");
@@ -104,8 +104,10 @@ int main(int argc, char** argv)
         epoch = atoi(argv[1]);
 
     //Declear layer objects
-    Dense d, d1, df;
+    Dense d, d1, d2, d3, df;
     Flatten flatten;
+    DenseInfo dInfo(2, 2, 2, 1.0, false, "linear"), d1Info(128,32,32,1.0,false,"tanh");
+    DenseInfo dfInfo(32, 10, 10, 1.0, false, "softmax");
     FlattenInfo fi(28, 28);
     cudaError_t cudaStatus;
 
@@ -113,10 +115,13 @@ int main(int argc, char** argv)
     Matrix one_hot = Identity(10);
 
     //add layers to the network
-    Net net;
+    Net net(trainFile_num,30);//init with batch size
+
     net.add(&flatten, &fi);
-    net.add(&d1, 128,1.0,"tanh");
-    net.add(&df, 10,1.0,"softmax");
+    //net.add(&d, &dInfo);
+    net.add(&d1, 30, 1.0, "relu", nullptr, true);
+    //net.add(&d2, 128, 1.0, "sigmoid", "adam");
+    net.add(&df, 10, 1.0, "softmax");
 
     int count = 0;
     MYTYPE* loss = new MYTYPE[epoch];
@@ -124,29 +129,26 @@ int main(int argc, char** argv)
     MYTYPE* tloss = new MYTYPE[epoch];
     FILE* f;
 
+    int kkk = trainFile_num * 1.0;
+    //shuffle training set
+    std::random_shuffle(trainset.begin(), trainset.end());
     //main loop
     while (now_epoch < epoch)
     {
         count = 0;
-        net.train = true;
-
-        //shuffle training set
-        std::random_shuffle(trainset.begin(), trainset.end());
-
         //input one file each time
-        while (count < trainFile_num * 0.8)//80% of the training files use for training
+        net.train = true;
+        while (count < kkk/*trainFile_num*/ )
         {
+            //printf("Epoch:%d File: %d\n", now_epoch, count);
+
             obj_label = trainset[count].label;
             net.Forward(trainset[count].file);
             net.Backward(one_hot.RowSlice(obj_label));
-            //net.Save(std::to_string(now_epoch) + std::to_string(count));
             count++;
         }
-        printf("Loss in %d epoch: %f\n", now_epoch, net.total_loss / (trainFile_num * 0.8));
-
-        //save weights every epoch
-        net.Save(std::to_string(now_epoch));
-        //loss[now_epoch] = net.total_loss / trainFile_num;
+        printf("Loss in %d epoch: %f\n", now_epoch, net.total_loss / kkk);
+        loss[now_epoch] = net.total_loss / kkk;
 
         //decrease the learning rate in the network
         //if (now_epoch % 5 == 0)
@@ -155,34 +157,57 @@ int main(int argc, char** argv)
         //reset total_loss, this variable will record loss in validation process
         net.total_loss = 0.0;
 
-        while(count < trainFile_num )//20% of the training files use for validation
+        //validation process
+        net.train = false;
+        count = 0;
+        while(count<testFile_num)
         {
-            obj_label = trainset[count].label;
-            net.Forward(trainset[count].file);
+            obj_label = testset[count].label;
+            net.Forward(testset[count].file);
             if (net.Eval(obj_label, one_hot.RowSlice(obj_label)))
                 accuracy[now_epoch] += 1.0;
             count++;
         }
-        accuracy[now_epoch] /= (trainFile_num * 0.2);
-        tloss[now_epoch] = net.total_loss / (trainFile_num * 0.2);
+
+        //save weights every epoch
+        if (now_epoch % 1 == 0)
+            net.Save(std::to_string(now_epoch));
+
+        accuracy[now_epoch] /= testFile_num;
+        tloss[now_epoch] = net.total_loss / testFile_num;
         printf("Valid accuracy in %d epoch: %f, loss in this epoch: %f\n", now_epoch, accuracy[now_epoch], tloss[now_epoch]);
-        //f = fopen(string(std::to_string(now_epoch) + "/cate_res.txt").c_str(), "w");
-        //for (int i = 0; i < 10; i++)
-        //    fprintf(f, "%d ", net.cate_res[i]);
-        //fclose(f);
+
         for (int i = 0; i < 10; i++)
             printf("%d ", net.cate_res[i]);
         printf("\n");
         memset(net.cate_res, 0, sizeof(int) * 10);
 
         net.total_loss = 0.0;
+        net.epochReset();
+        for (int i = 0; i < 10; i++)
+            for (int j = 0; j < 10; j++)
+                net.confuse[i][j] = 0;
         now_epoch++;
     }
+
+    FILE* facc = fopen("./valid accuracy.txt", "w");
+    for (int i = 0; i < epoch; i++)
+        fprintf(facc, "%f\n", accuracy[i]);
+    fclose(facc);
+    facc = fopen("./train loss.txt", "w");
+    for (int i = 0; i < epoch; i++)
+        fprintf(facc, "%f\n", loss[i]);
+    fclose(facc);
+    facc = fopen("./valid loss.txt", "w");
+    for (int i = 0; i < epoch; i++)
+        fprintf(facc, "%f\n", tloss[i]);
+    fclose(facc);
 
     //test process
     count = 0;
     accuracy[0] = 0.0;
     net.total_loss = 0.0;
+    net.train = false;
     while (count < testFile_num)
     {
         obj_label = test_label_arr[count];
@@ -192,7 +217,7 @@ int main(int argc, char** argv)
         count++;
     }
     accuracy[0] /= testFile_num;
-    printf("Test accuracy in %d epoch: %f, loss in this epoch: %f\n\n", now_epoch, accuracy[0], net.total_loss / testFile_num);
+    printf("Test accuracy in %d epoch: %f, loss in this epoch: %f\n", now_epoch, accuracy[0], net.total_loss / testFile_num);
     f = fopen("./cate_res.txt", "w");
     for (int i = 0; i < 10; i++)
         fprintf(f, "%d ", net.cate_res[i]);
@@ -284,20 +309,20 @@ void Listdir(std::string _dir, const char* ext, std::vector<string>& result)
 }
 #endif/*Linux*/
 #if defined(_WIN64) || defined(_WIN32)
-void Listdir(std::string _dir, const char* ext, std::vector<string>& result)
+void Listdir(std::string _dir, const char* ext, std::vector<string>& result, bool fulldir)
 {
     _finddata_t file_info = { 0 };
     intptr_t handel = 0;
     string currentPath = "";
     string temppath = "";
-    char _ext[_MAX_EXT];//后缀名
+    char _ext[_MAX_EXT];
 
     if (_dir.empty())
     {
         printf("ERROR: Invalid argument _dir (null).\n");
         return;
     }
-    if (_access(_dir.c_str(), 0) == -1)//用于判断目录是否存在。如果_access不可用，尝试用access代替
+    if (_access(_dir.c_str(), 0) == -1)//check whether the directory exists. use 'access' if '_access' is not supported
     {
         printf("ERROR: Input directory %s does not exsist\n", _dir.c_str());
         return;
@@ -331,7 +356,7 @@ void Listdir(std::string _dir, const char* ext, std::vector<string>& result)
             if (file_info.attrib & _A_SUBDIR)
             {
                 temppath = _dir + "/" + file_info.name;
-                Listdir(temppath, ext, result);
+                Listdir(temppath, ext, result, fulldir);
                 continue;
             }
 
@@ -339,7 +364,12 @@ void Listdir(std::string _dir, const char* ext, std::vector<string>& result)
             if (strcmp(ext, _ext) != 0)
                 continue;
             else
-                result.push_back(_dir + "/" + file_info.name);
+            {
+                if (fulldir)
+                    result.push_back(_dir + "/" + file_info.name);
+                else
+                    result.push_back(file_info.name);
+            }
 
         } while (!_findnext(handel, &file_info));
         _findclose(handel);
