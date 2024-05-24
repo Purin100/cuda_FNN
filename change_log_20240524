@@ -11,3 +11,4 @@ There are logic error in all Backward() functions in Dense class, including:
 3) class Net has new constructor to initialize with batch size.
 4) matrix transpose function mat_calc::MatrixTranspose.
 5) Vector local_out stores the result of wx+b.
+6) Adam optimizer
