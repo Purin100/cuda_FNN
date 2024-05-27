@@ -1,5 +1,5 @@
 #Fix
-There are logic error in all Backward() functions in Dense class, including:
+There are logic errors in all Backward() functions in Dense class, including:
 1) the differal vector which stores the derivative of f'(x) should be calculated based on wx+b not the final output of the layer.
 2) the chaotic calculation process in Backward() functions may causes some potential problem and make code hard to understand. I tidied it up.
 3) variable thread for calling cuda functions were too large, causing the device wastes time waiting for this variable increasing to 512. I reduced all of them to 32, and it may save some time.
@@ -11,4 +11,4 @@ There are logic error in all Backward() functions in Dense class, including:
 3) class Net has new constructor to initialize with batch size.
 4) matrix transpose function mat_calc::MatrixTranspose.
 5) Vector local_out stores the result of wx+b.
-6) Adam optimizer
+6) Adam optimizer (in optimizer.h and optimizer.cu)
