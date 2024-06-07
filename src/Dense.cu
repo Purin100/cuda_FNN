@@ -39,7 +39,6 @@ bool Dense::BuildLayer(int input_units, int output_units, const char* activation
     weight_t = Matrix(input_units, output_units);
     save_grad = Matrix(output_units, input_units);
 
-    grad_direction = Matrix(output_units, input_units);
 
     output = Vector(output_units);
     loss = Vector(output_units);
