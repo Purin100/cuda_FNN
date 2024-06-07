@@ -55,12 +55,10 @@ private:
     Matrix grad_sample;//save gradient for each sample in a batch
     Matrix weight_grad;//matrix contains gradient values of weight matrix
     Matrix save_grad;
-    Matrix grad_direction;
 
     MYTYPE lr = 0.001;
 
     Vector output;
-    Vector input_frequence, output_frequence;
     Vector bias;
     Vector bias_batch;//save gradient in one batch
     Vector input;
