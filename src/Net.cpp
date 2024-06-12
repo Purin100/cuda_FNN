@@ -107,13 +107,15 @@ void Net::Forward(TXTReader* _input)
     }
 }
 
-void Net::Forward(MYTYPE* _input, int row, int col)
+void Net::Forward(Vector& _input, int row, int col)
 {
     Dense* dlayer_now = nullptr, * dlayer_pre = nullptr;
     Flatten* flayer_now = nullptr;
     auto now_layer = layers.begin();
     auto pre_layer = layers.begin();
 
+    if (now_layer->type == FLATTEN)
+        reinterpret_cast<Flatten*>(now_layer->layer)->Forward(_input);
     now_layer++;
 
     int preType;
