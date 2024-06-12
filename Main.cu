@@ -7,6 +7,7 @@
 #include "Net.h"
 #include "TXTReader.h"
 #include "optimizer.h"
+#include "PNGReader.h"
 #include <stdio.h>
 #if defined(linux) || defined(Liunx)
 #include <dirent.h>
@@ -27,7 +28,7 @@ struct Dataset
 
 int main(int argc, char** argv)
 {
-    TXTReader* file, * valid;
+    PNGReader* file, * valid;
     
 #ifdef _DEBUG
     int trainFile_num = 100, testFile_num = 100;
@@ -41,32 +42,33 @@ int main(int argc, char** argv)
     int now_epoch = 0;
     std::vector<string> trainfiles, testfiles;
 
+//Change directory to where you save your MNIST dataset
 #ifdef linux
-    Listdir(std::string("./trainsamples"), ".txt", trainfiles);
-    Listdir(std::string("./testsamples"), ".txt", testfiles);
+    Listdir(std::string("./trainsamples"), ".png", trainfiles);
+    Listdir(std::string("./testsamples"), ".png", testfiles);
 #else
-    Listdir(std::string("./trainsamples"), ".txt", trainfiles);
-    Listdir(std::string("./testsamples"), ".txt", testfiles);
+    Listdir(std::string("./trainsamples"), ".png", trainfiles);
+    Listdir(std::string("./testsamples"), ".png", testfiles);
 #endif
     //read training data and test data from files
     //trainFile_num = trainfiles.size();
     //testFile_num = testfiles.size();
 
-    file = new TXTReader[trainFile_num];
-    valid = new TXTReader[testFile_num];
+    file = new PNGReader[trainFile_num];
+    valid = new PNGReader[testFile_num];
 
     for (int i = 0; i < trainFile_num; i++)
     {
-        file[i].ReadFile("mnist", trainfiles[i]);
+        file[i].ReadFile(trainfiles[i]);
         file[i].Shrink(MINUS_ONE_TO_ONE);
     }
     for (int i = 0; i < testFile_num; i++)
     {
-        valid[i].ReadFile("mnist", testfiles[i]);
+        valid[i].ReadFile(testfiles[i]);
         valid[i].Shrink(MINUS_ONE_TO_ONE);
     }
 
-    FILE* train_label = fopen("./train_label.txt", "r");
+    /*FILE* train_label = fopen("./train_label.txt", "r");
     if (!train_label)
     {
         printf("ERROR: Open train_label failed.\n");
@@ -79,19 +81,19 @@ int main(int argc, char** argv)
         printf("ERROR: Open test_label failed.\n");
         fclose(train_label);
         return -1;
-    }
+    }//*/
 
     train_label_arr = new int[trainFile_num];
     test_label_arr = new int[testFile_num];
 
-    for (int i = 0; i < testFile_num; i++)
-        fscanf(test_label, "%d", &test_label_arr[i]);
     for (int i = 0; i < trainFile_num; i++)
-        fscanf(train_label, "%d", &train_label_arr[i]);
+        train_label_arr[i] = file[i].label;
+    for (int i = 0; i < testFile_num; i++)
+        test_label_arr[i] = valid[i].label;
     printf("label loaded.\n");
 
-    fclose(train_label);
-    fclose(test_label);
+    //fclose(train_label);
+    //fclose(test_label);
     printf("File load complete.\n");
 
     std::vector<Dataset> trainset, testset;
@@ -143,7 +145,7 @@ int main(int argc, char** argv)
             //printf("Epoch:%d File: %d\n", now_epoch, count);
 
             obj_label = trainset[count].label;
-            net.Forward(trainset[count].file);
+            net.Forward(trainset[count].file->pixel, 28, 28);
             net.Backward(one_hot.RowSlice(obj_label));
             count++;
         }
@@ -160,10 +162,10 @@ int main(int argc, char** argv)
         //validation process
         net.train = false;
         count = 0;
-        while(count<testFile_num)
+        while(count < testFile_num)
         {
             obj_label = testset[count].label;
-            net.Forward(testset[count].file);
+            net.Forward(testset[count].file->pixel, 28, 28);
             if (net.Eval(obj_label, one_hot.RowSlice(obj_label)))
                 accuracy[now_epoch] += 1.0;
             count++;
@@ -211,7 +213,7 @@ int main(int argc, char** argv)
     while (count < testFile_num)
     {
         obj_label = test_label_arr[count];
-        net.Forward(&valid[count]);
+        net.Forward(testset[count].file->pixel, 28, 28);
         if (net.Eval(obj_label, one_hot.RowSlice(obj_label)))
             accuracy[0] += 1.0;
         count++;
