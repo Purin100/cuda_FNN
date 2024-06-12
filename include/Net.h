@@ -31,7 +31,7 @@ public:
 
     void Forward(MYTYPE* _input, const int size);
     void Forward(TXTReader* _input);
-    void Forward(MYTYPE* _input, int row, int col);
+    void Forward(Vector& _input, int row, int col);
 
     void Backward(Vector onehot_label);
     bool Eval(int label, Vector onehot_label);
