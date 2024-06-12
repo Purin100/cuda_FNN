@@ -59,6 +59,17 @@ void Flatten::Forward(MYTYPE** _input, int row, int col)
     output.DataTransfer(HostToDevice);
 }
 
+void Flatten::Forward(Vector& _input)
+{
+    if (_input.empty())
+    {
+        printf("ERROR: input vector _input int Flatten::Forward(Vector&, const int) is empty.\n");
+        getchar();
+        return;
+    }
+    this->output = _input;
+}
+
 void Flatten::Backward(Vector& _loss)
 {
     if (_loss.empty())
