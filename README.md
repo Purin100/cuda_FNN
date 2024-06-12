@@ -1,8 +1,6 @@
 # cuda_FNN
 
-# solved problem
-This network CANNOT get results better than 11.35%. This is because the network will recognize samples as number one (the second category in MNIST dataset).
-It seems that there are something wrong with the dataset I used. I changed another MNIST data source, and everything went well. For a 30 epochs experiment, the accuracy can reach around 90% on the test set. Although not good enough, it finally works.
+The lastest update is under branch 20240524
 
 # Introduction
 This project is still under construction, but the forward and the BP process for fully-connected layer (or called Dense layer) have finished. It means the network can work now.
