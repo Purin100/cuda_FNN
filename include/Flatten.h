@@ -21,6 +21,7 @@ public:
     bool BuildLayer(const int input_row, const int input_col);
 
     void Forward(MYTYPE** _input, int row, int col);
+    void Forward(Vector& _input);
 
     void Backward(Vector& _loss);
 
