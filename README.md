@@ -9,7 +9,7 @@ I will add convolutional layer in the future.
 A C++/CUDA based neural network coding practice, using cublas library.
 This program may not work on Linux due to a strange error in curand library.
 
-Tested on Windows 10 with Visual Studio 2019 (VS 2019), CUDA v11.7, MNIST dataset. Due to unkonwn reasons, the program will failed under Release mode. Unfortunately, I can't reproduce this error under Debug mode.
+Tested on Windows 10 with Visual Studio 2019 (VS 2019), CUDA v11.7, MNIST dataset. Due to unkonwn reasons, the program may failed under Release mode. Unfortunately, I can't reproduce this error under Debug mode.
 Please run my code under Debug mode if you want to have a try.
 
 # Usage
