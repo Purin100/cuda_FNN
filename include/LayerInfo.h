@@ -9,9 +9,7 @@ enum LayerType
     MAXPOOLING = 3,
     AVERAGEPOOLING = 4,
     FLATTEN = 5,
-    NEURON = 6,
-    RANIVER = 7,
-    DROPOUT = 8,
+    DROPOUT = 6,
     //LASTGUARD
 };
 
