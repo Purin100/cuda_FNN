@@ -4,7 +4,7 @@ The lastest update is under branch 20240524
 
 # Introduction
 This project is still under construction, but the forward and the BP process for fully-connected layer (or called Dense layer) have finished. It means the network can work now.
-I will add convolutional layer in the future.
+For the convolution neural network version, please move to this project
 
 A C++/CUDA based neural network coding practice, using cublas library.
 This program may not work on Linux due to a strange error in curand library.
