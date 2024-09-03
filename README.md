@@ -6,14 +6,15 @@ This network CANNOT get results better than 11.35%. This is because the network 
 It seems that there are something wrong with the dataset I used. I changed another MNIST data source, and everything went well. For a 30 epochs experiment, the accuracy can reach around 90% on the test set. Although not good enough, it finally works.
 
 # Introduction
-This project is still under construction, but the forward and the BP process for fully-connected layer (or called Dense layer) have finished. It means the network can work now.
-I will add convolutional layer in the future.
+The forward and the BP process for fully-connected layer (or called Dense layer) have finished.
+
+For the convolution neural network version, please move to this project https://github.com/Purin100/CUDA_CNN
 
 A C++/CUDA based neural network coding practice, using cublas library.
 This program may not work on Linux due to a strange error in curand library.
 
 Tested on Windows 10 with Visual Studio 2019 (VS 2019), CUDA v11.7, MNIST dataset. Due to unkonwn reasons, the program will failed under Release mode. Unfortunately, I can't reproduce this error under Debug mode.
-Please run my code under Debug mode if you want to have a try.
+Please run my code under Debug mode if you want to have a try. You need OpenCV to load images.
 
 # Usage
 You can build up a neural network following these steps:
