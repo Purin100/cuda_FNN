@@ -185,7 +185,6 @@ public:
     MYTYPE total_loss = 0.0;
     bool train = true;
 private:
-    vector<thread> threads;
     vector<Net_LayerInfo> layers;//a vector stores all layers' information in the network
     int order = 0;//a variable records the order of the layer, begins from zero.
     MYTYPE loss = 0.0f;//loss value for single sample
@@ -195,6 +194,5 @@ private:
     int now_batch = 0;
     Vector input;
     MYTYPE* lastLayer_output = nullptr;
-    bool use_raniver = false;
     MYTYPE bat_loss[10] = { 0.0 };//array stores loss values in one batch
 };
