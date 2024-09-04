@@ -152,7 +152,6 @@ struct Net_LayerInfo
     int num = 0;
     LayerType type = UNKNOWN;
     int order = 0;
-    bool isRaniverBegin = false;
 };
 
 struct FlattenInfo
